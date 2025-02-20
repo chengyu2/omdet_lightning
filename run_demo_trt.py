@@ -5,6 +5,7 @@ import numpy as np
 import tensorrt as trt
 import pycuda.driver as cuda
 import pycuda.autoinit
+import concurrent.futures
 
 
 def load_engine(engine_path):
@@ -103,16 +104,18 @@ def preprocess_image(image_path):
     return image_array
 
 
+
 def preprocess_batch(image_paths):
     """
     Preprocess a batch of images.
     :param image_paths: List of paths to input images
     :return: Numpy array of shape [batch_size, 3, 640, 640]
     """
-    batch_images = []
-    for img_path in image_paths:
-        img_array = preprocess_image(img_path)
-        batch_images.append(img_array)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Submit preprocess_image tasks for each image path
+        futures = [executor.submit(preprocess_image, img_path) for img_path in image_paths]
+        # Gather the results
+        batch_images = [future.result() for future in concurrent.futures.as_completed(futures)]
     batch_images = np.concatenate(batch_images, axis=0)
     return batch_images
 
