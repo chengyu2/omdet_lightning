@@ -9,6 +9,7 @@ from omdet.utils.cache import LRUCache
 from omdet.inference.base_engine import BaseEngine
 from detectron2.utils.logger import setup_logger
 from omdet.omdet_v2_turbo.config import add_omdet_v2_turbo_config
+import torch_tensorrt
 
 
 class DetEngine(BaseEngine):
@@ -94,7 +95,26 @@ class DetEngine(BaseEngine):
 
         return resp
 
-    def export_onnx(self, model_id, img_tensor, label_feats, task_feats, task_mask, onnx_model_path):
+    # def export_onnx(self, model_id, img_tensor, label_feats, task_feats, task_mask, onnx_model_path):
+    #
+    #     model, _ = self._load_model(model_id)
+    #     model.to("cpu")
+    #     model.eval()
+    #     inputs = (img_tensor, label_feats, task_feats, task_mask)
+    #
+    #     print("start cvt onnx...")
+    #     torch.onnx.export(model,  # model being run
+    #                       inputs,  # model input (or a tuple for multiple inputs)
+    #
+    #                       onnx_model_path,  # where to save the model (can be a file or file-like object)
+    #                       export_params=True,  # store the trained parameter weights inside the model file
+    #                       opset_version=17,  # the ONNX version to export the model to
+    #                       do_constant_folding=True,  # whether to execute constant folding for optimization
+    #                       input_names=['img_tensor', "label_feats", "task_feats", "task_mask"],
+    #                       )
+
+    def export_onnx(self, model_id, img_tensor, label_feats, task_feats, task_mask, onnx_model_path,
+                    ):
 
         model, _ = self._load_model(model_id)
         model.to("cpu")
@@ -102,6 +122,14 @@ class DetEngine(BaseEngine):
         inputs = (img_tensor, label_feats, task_feats, task_mask)
 
         print("start cvt onnx...")
+        # Create a dynamic axes dictionary for each input
+        dynamic_axes = {
+            'img_tensor': {0: 'batch_size'},
+            'label_feats': {1: 'batch_size'},
+            'task_feats': {1: 'batch_size'},
+            'task_mask': {0: 'batch_size'}
+        }
+
         torch.onnx.export(model,  # model being run
                           inputs,  # model input (or a tuple for multiple inputs)
                           onnx_model_path,  # where to save the model (can be a file or file-like object)
@@ -109,4 +137,6 @@ class DetEngine(BaseEngine):
                           opset_version=17,  # the ONNX version to export the model to
                           do_constant_folding=True,  # whether to execute constant folding for optimization
                           input_names=['img_tensor', "label_feats", "task_feats", "task_mask"],
-                          )
+                          dynamic_axes=dynamic_axes)  # specify the dynamic axes
+
+        print(f"ONNX model exported to {onnx_model_path}")

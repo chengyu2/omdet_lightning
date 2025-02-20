@@ -1,5 +1,5 @@
 timm==0.9.16
-transformers==4.21.0
+transformers
 lmdb==1.4.1
 Pillow==8.4.0
 ftfy==6.2.0
@@ -8,3 +8,4 @@ opencv-python==4.7.0.72
 pydantic
 fastapi
 uvicorn
+numpy<2

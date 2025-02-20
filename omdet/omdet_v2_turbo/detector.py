@@ -69,19 +69,47 @@ class OmDetV2Turbo(nn.Module, PyTorchModelHubMixin):
             'cfg': cfg
         }
 
+    # def preprocess_image(self, batched_inputs):
+    #     """
+    #     Normalize, pad and batch the input images.
+    #     """
+    #     images = [self.normalizer(x["image"].to(self.device)) for x in batched_inputs]
+    #     images = ImageList.from_tensors(images, self.size_divisibility)
+    #
+    #     images_whwh = list()
+    #     for bi in batched_inputs:
+    #         h, w = bi["image"].shape[-2:]
+    #         images_whwh.append(torch.tensor([w, h, w, h], dtype=torch.float32, device=self.device))
+    #     images_whwh = torch.stack(images_whwh)
+    #     ann_types = [x["ann_type"] if "ann_type" in x else "box" for x in batched_inputs]
+    #     return images, images_whwh, ann_types
+
     def preprocess_image(self, batched_inputs):
         """
         Normalize, pad and batch the input images.
+        Supports batched_inputs as a list of dictionaries (with key "image")
+        or as a list of image tensors directly.
         """
-        images = [self.normalizer(x["image"].to(self.device)) for x in batched_inputs]
+        images = []
+        for x in batched_inputs:
+            # If x is a dict, get the image from the key "image", otherwise assume x is the image tensor.
+            img = x["image"] if isinstance(x, dict) else x
+            img = img.to(self.device)
+            images.append(self.normalizer(img))
         images = ImageList.from_tensors(images, self.size_divisibility)
 
-        images_whwh = list()
-        for bi in batched_inputs:
-            h, w = bi["image"].shape[-2:]
+        images_whwh = []
+        for x in batched_inputs:
+            # Get height and width from the image tensor
+            if isinstance(x, dict):
+                h, w = x["image"].shape[-2:]
+            else:
+                h, w = x.shape[-2:]
             images_whwh.append(torch.tensor([w, h, w, h], dtype=torch.float32, device=self.device))
         images_whwh = torch.stack(images_whwh)
-        ann_types = [x["ann_type"] if "ann_type" in x else "box" for x in batched_inputs]
+
+        # If annotation type is provided in the dict, use it; otherwise default to "box"
+        ann_types = [x["ann_type"] if isinstance(x, dict) and "ann_type" in x else "box" for x in batched_inputs]
         return images, images_whwh, ann_types
 
     def gen_output(self, box_cls, box_pred, batched_inputs, images, score_thresh, nms_thresh, do_postprocess,
